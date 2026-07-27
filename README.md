@@ -2,12 +2,16 @@
 
 Vectorized embeddings, visualization, and recommendations of Steam games
 
-## Embeddings/Backend
+## Pipeline
+- Download data from <a href="https://huggingface.co/datasets/FronkonGames/steam-games-dataset">🤗</a> -> raw_games.parquet
+- Clean data, removing html & md, converting lists to strings, removing duplicates -> games.parquet
+- Embed games.parquet using OpenAI *text-embedding-3-small* -> embeddings.npy
+- Upload embeddings -> NeonDB + pgvector
+
+## Backend
 ### Python + FastAPI
-- Initial data fetched from https://www.kaggle.com/datasets/fronkongames/steam-games-dataset
-- Embedded using OpenAI *text-embedding-3-small* model/API
 - Player *taste* embedding generated using top played games weighted by playtime and normalized
-- Stored in NeonDB with pgvector extension
+- Quries pgvector db
 
 ## Frontend
 ### React + Vite + Tanstack
