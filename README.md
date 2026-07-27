@@ -5,7 +5,7 @@ Vectorized embeddings, visualization, and recommendations of Steam games
 ## Pipeline
 - Download data from <a href="https://huggingface.co/datasets/FronkonGames/steam-games-dataset">🤗</a> -> raw_games.parquet
 - Clean data, removing html & md, converting lists to strings, removing duplicates -> games.parquet
-- Embed games.parquet using OpenAI *text-embedding-3-small* -> embeddings.npy
+- Embed games.parquet using OpenAI *text-embedding-3-small* (512 dimensions) -> embeddings.npy
 - Upload embeddings -> NeonDB + pgvector
 
 ## Backend

@@ -56,7 +56,7 @@ def create_embeddings(row):
     {row['publishers']}
     """
 
-steam = pd.read_parquet("./data/processed/raw_games.parquet") # data from download_data.py
+steam = pd.read_parquet("./data/raw/raw_games.parquet") # data from download_data.py
 
 # print(steam.columns.to_list())
 
@@ -79,6 +79,6 @@ steam['description_clean'] = (steam['detailed_description'].apply(combined_strip
 for col in ['developers', 'publishers', 'categories', 'genres', 'tags']:
     steam[col] = steam[col].apply(list_to_text)
 
-steam['embeddings_text'] = steam.apply(create_embeddings, axis=1) # row wise
+steam['embedding_text'] = steam.apply(create_embeddings, axis=1) # row wise
 
 steam.to_parquet("./data/processed/games.parquet")

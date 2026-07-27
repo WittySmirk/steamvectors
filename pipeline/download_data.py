@@ -6,4 +6,4 @@ ds = load_dataset("FronkonGames/steam-games-dataset")
 
 steam = cast(pd.DataFrame, ds["train"].to_pandas())
 
-steam.to_parquet("./data/processed/raw_games.parquet")
+steam.to_parquet("./data/raw/raw_games.parquet")
