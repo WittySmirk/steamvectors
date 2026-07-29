@@ -89,4 +89,4 @@ embeddings = normalize(embeddings, axis=1)
 assert len(steam) == len(texts)
 # Save embeddings and bind app id and name to indexes
 np.save('./data/embeddings/embeddings.npy', embeddings)
-steam[['appID', 'name', 'genres', 'developers']].to_parquet('./data/embeddings/game_index.parquet')
+steam[['appID', 'name', 'genres', 'developers', 'header_image']].to_parquet('./data/embeddings/game_index.parquet')

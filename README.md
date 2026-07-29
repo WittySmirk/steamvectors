@@ -11,7 +11,7 @@ Vectorized embeddings, visualization, and recommendations of Steam games
 ## Backend
 ### Python + FastAPI
 - Player *taste* embedding generated using top played games weighted by playtime and normalized
-- Quries pgvector db
+- Queries pgvector db
 
 ## Frontend
 ### React + Vite + Tanstack

@@ -1,6 +1,7 @@
 from bs4 import BeautifulSoup
 import re
 import pandas as pd
+import numpy as np
 
 # Remove html from descriptions
 def strip_html(x: str) -> str:
@@ -17,7 +18,7 @@ MD_PATTERNS = [
 def strip_md(x: str) -> str:
     for pat, repl, *flags in MD_PATTERNS:
         flag = flags[0] if flags else 0
-        text = re.sub(pat, repl, x, flags=flag)
+        x = re.sub(pat, repl, x, flags=flag)
     return x
 
 # Remove html + md
@@ -26,8 +27,8 @@ def combined_strip(x: str) -> str:
     return strip_md(no_html)
 
 # Easier to embed "a, b, c" than [a,b,c]
-def list_to_text(x: str) -> str:
-    if isinstance(x, list):
+def list_to_text(x) -> str:
+    if isinstance(x, (list, np.ndarray)):
         return ", ".join(x)
     return ""
 
@@ -42,9 +43,6 @@ def create_embeddings(row):
 
     Genres:
     {row['genres']}
-
-    Tags:
-    {row['tags']}
 
     Categories:
     {row['categories']}
@@ -69,14 +67,14 @@ steam = steam[[
     'publishers',
     'categories',
     'genres',
-    'tags'
+    'header_image'
 ]]
 
 steam = steam.drop_duplicates(subset=['appID'])
 
 steam['description_clean'] = (steam['detailed_description'].apply(combined_strip))
 
-for col in ['developers', 'publishers', 'categories', 'genres', 'tags']:
+for col in ['developers', 'publishers', 'categories', 'genres']:
     steam[col] = steam[col].apply(list_to_text)
 
 steam['embedding_text'] = steam.apply(create_embeddings, axis=1) # row wise
