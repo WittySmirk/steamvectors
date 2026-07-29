@@ -2,6 +2,9 @@ from bs4 import BeautifulSoup
 import re
 import pandas as pd
 import numpy as np
+from pathlib import Path
+
+Path("./data/processed").mkdir(parents=True, exist_ok=True)
 
 # Remove html from descriptions
 def strip_html(x: str) -> str:
