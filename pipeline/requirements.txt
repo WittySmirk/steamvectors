@@ -27,7 +27,7 @@ kagglesdk==0.1.35
 multidict==6.7.1
 multiprocess==0.70.19
 narwhals==2.24.0
-numpy==2.5.1
+numpy==2.4.6
 openai==2.48.0
 packaging==26.2
 pandas==3.0.5
@@ -51,6 +51,7 @@ soupsieve==2.9.1
 threadpoolctl==3.6.0
 tiktoken==0.13.0
 tqdm==4.70.0
+umap-learn==0.5.12
 typing-inspection==0.4.2
 typing_extensions==4.16.0
 urllib3==2.7.0
