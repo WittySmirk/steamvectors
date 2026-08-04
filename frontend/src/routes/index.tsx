@@ -1,7 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useState } from 'react';
+import { Canvas } from '@react-three/fiber';
 
 import { getCurrentUser } from '#/server/getUserData';
+
 export const Route = createFileRoute('/')({ 
   loader: () => getCurrentUser(),
   component: Home
@@ -76,6 +78,7 @@ function Home() {
           </a>
         </div>
       }
+      <Canvas />
     </div>
   )
 }

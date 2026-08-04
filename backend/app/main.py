@@ -1,6 +1,6 @@
 import os 
 import httpx
-import json
+import psycopg
 from urllib.parse import urlencode
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import RedirectResponse
@@ -120,3 +120,23 @@ async def get_me(req: Request):
         except httpx.RequestError:
             return HTTPException(status_code=503, detail="Steam API Unreachable")
     
+@app.get("/api/projections")
+async def get_projections():
+    # TODO: move this out of here and expose db module
+    conn_string = os.environ.get("DATABASE_URL")
+    if conn_string is None:
+        raise ValueError("DATABASE_URL environment variable is required")
+    with psycopg.connect(conn_string) as conn:
+        with conn.cursor() as curr:
+            curr.execute("""
+                SELECT 
+                    p.x,
+                    p.y,
+                    g.id as game_id,
+                    g.name
+                FROM game_embedding_projections p
+                JOIN game_embeddings g
+                    ON p.game_embedding_id = g.id
+            """)
+            rows = curr.fetchall()
+            return rows 
