@@ -18,8 +18,7 @@ interface UserData {
     timecreated: number,
     personastateflags: number
 };
-
-export const getCurrentUser = createServerFn({method: "GET"}).handler(async (): Promise<UserData> => {
+export const getCurrentUser = createServerFn({method: "GET"}).handler(async (): Promise<UserData | undefined> => {
     const request = getRequest();
     const cookie = request.headers.get("cookie") ?? ""
 
@@ -27,7 +26,8 @@ export const getCurrentUser = createServerFn({method: "GET"}).handler(async (): 
         headers: {
             cookie
         }
-    })
+    }) 
 
-    return res.json()
+
+    return res.json() 
 })

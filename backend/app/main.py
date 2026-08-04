@@ -7,10 +7,11 @@ from fastapi.responses import RedirectResponse
 from fastapi.requests import Request
 from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
 app = FastAPI()
 
-# Dev only
+# TODO: Dev only
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"],
@@ -52,6 +53,47 @@ def steam_callback(req: Request):
     response.set_cookie("steam_id", steam_id, secure=False, httponly=True)
     
     return response
+
+@app.post("/auth/logout")
+def auth_logot():
+    response = RedirectResponse("http://localhost:3000/", status_code=204)
+    response.delete_cookie(key="steam_id", httponly=True)
+    print("deleted steam id")
+    return response
+
+class SetUserRequest(BaseModel):
+    id: str
+
+# TODO: maybe allow list of users
+@app.post("/api/set_user")
+async def set_user(req: SetUserRequest):
+    response = RedirectResponse("http://localhost:3000/", status_code=302)
+    if not req.id:
+        print("test")
+        return HTTPException(status_code=301, detail="No steam_id provided")
+
+    params = {
+        "key": os.environ.get("STEAM_KEY"),
+        "steamids": req.id
+    }
+
+    url = "https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v0002/?" + urlencode(params)
+
+    async with httpx.AsyncClient() as client:
+            try:
+                r = await client.get(url)
+                if len(r.json().get("response").get("players")) == 0:
+                    return HTTPException(status_code=400, detail="Steam id does not exist")
+                response.set_cookie("steam_id", req.id, secure=False, httponly=True)
+                return response
+
+            except httpx.HTTPStatusError as err:
+                print("here2")
+                return HTTPException(status_code=err.response.status_code, detail="Steam API Error")
+            except httpx.RequestError:
+                print("here3")
+                return HTTPException(status_code=503, detail="Steam API Unreachable") 
+    
 
 @app.get("/api/me")
 async def get_me(req: Request):
