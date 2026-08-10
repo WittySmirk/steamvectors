@@ -1,9 +1,10 @@
 import os 
 import httpx
 import psycopg
+from psycopg.rows import dict_row
 from urllib.parse import urlencode
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, JSONResponse
 from fastapi.requests import Request
 from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
@@ -127,16 +128,18 @@ async def get_projections():
     if conn_string is None:
         raise ValueError("DATABASE_URL environment variable is required")
     with psycopg.connect(conn_string) as conn:
-        with conn.cursor() as curr:
+        with conn.cursor(row_factory=dict_row) as curr:
             curr.execute("""
                 SELECT 
                     p.x,
                     p.y,
-                    g.id as game_id,
+                    g.app_id,
                     g.name
                 FROM game_embedding_projections p
                 JOIN game_embeddings g
                     ON p.game_embedding_id = g.id
             """)
             rows = curr.fetchall()
-            return rows 
+            response = JSONResponse(content=rows)
+            response.headers["Cache-Control"] = "public, max-age=86400"
+            return response 
