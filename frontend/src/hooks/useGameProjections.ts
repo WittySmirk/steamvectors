@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 
 export type GameProjection = { 
     app_id: string
-    name: string
+    genres: string
     x: number
     y: number
 }

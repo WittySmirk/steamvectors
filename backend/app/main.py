@@ -134,7 +134,7 @@ async def get_projections():
                     p.x,
                     p.y,
                     g.app_id,
-                    g.name
+                    g.genres
                 FROM game_embedding_projections p
                 JOIN game_embeddings g
                     ON p.game_embedding_id = g.id
@@ -143,3 +143,26 @@ async def get_projections():
             response = JSONResponse(content=rows)
             response.headers["Cache-Control"] = "public, max-age=86400"
             return response 
+
+@app.get("/api/games/{app_id}")
+async def get_game(app_id: str):
+    conn_string = os.environ.get("DATABASE_URL")
+    if conn_string is None:
+        raise ValueError("DATABASE_URL environment variable is required")
+    with psycopg.connect(conn_string) as conn:
+        with conn.cursor(row_factory=dict_row) as curr:
+            curr.execute("""
+            SELECT
+                app_id,
+                name,
+                genres,
+                developers,
+                header_image
+            FROM game_embeddings
+            WHERE app_id = %s
+
+            """, (app_id,))
+            row = curr.fetchone()
+            if row is None:
+                raise HTTPException(status_code=404, detail="Game not found")
+            return JSONResponse(content=row)
