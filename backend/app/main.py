@@ -120,7 +120,74 @@ async def get_me(req: Request):
             return HTTPException(status_code=err.response.status_code, detail="Steam API Error")
         except httpx.RequestError:
             return HTTPException(status_code=503, detail="Steam API Unreachable")
-    
+
+@app.get("/api/my_projection")
+async def get_my_projection(req: Request):
+    cookies = dict(req.cookies)
+    steam_id = cookies.get("steam_id")
+    if not steam_id:
+        return HTTPException(status_code=401, detail="No steam_id provided")
+
+
+    # https://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key=XXXXXXXXXXXXXXXXX&steamid=76561197960434622&format=json
+
+    params = {
+        "key": os.environ.get("STEAM_KEY"),
+        "steamid": steam_id,
+        "format": "json"
+    }
+    url = "https://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?" + urlencode(params)
+
+    games = []
+
+    async with httpx.AsyncClient() as client:
+        try:
+            resp = await client.get(url)
+            games = resp.json().get("response", {}).get("games") or []
+
+        except httpx.HTTPStatusError as err:
+            return HTTPException(status_code=err.response.status_code, detail="Steam API Error")
+        except httpx.RequestError:
+            return HTTPException(status_code=503, detail="Steam API Unreachable")
+
+    conn_string = os.environ.get("DATABASE_URL")
+    if conn_string is None:
+        raise ValueError("DATABASE_URL environment variable is required")
+
+    app_ids = [str(g["appid"]) for g in games]
+    playtimes = {str(g["appid"]): g.get("playtime_forever", 0) for g in games}
+
+    with psycopg.connect(conn_string) as conn:
+        with conn.cursor(row_factory=dict_row) as curr:
+            curr.execute("""
+            SELECT
+                g.app_id,
+                p.x,
+                p.y
+            FROM game_embedding_projections p
+            JOIN game_embeddings g ON p.game_embedding_id = g.id
+            WHERE g.app_id = ANY(%s)
+
+            """, (app_ids,))
+            rows = curr.fetchall()
+
+            weighted_x = weighted_y = total_weight = 0.0
+            for row in rows:
+                w = playtimes.get(row["app_id"], 0)
+                if w <= 0:
+                    continue
+                weighted_x += w * row["x"]
+                weighted_y += w * row["y"]
+                total_weight += w
+
+            if total_weight > 0:
+                weighted_x /= total_weight
+                weighted_y /= total_weight
+            else:
+                weighted_x = weighted_y = None
+
+            return JSONResponse(content={"x": weighted_x, "y": weighted_y})
+
 @app.get("/api/projections")
 async def get_projections():
     # TODO: move this out of here and expose db module
