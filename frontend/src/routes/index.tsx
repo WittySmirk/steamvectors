@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { getCurrentUser } from '#/server/getUserData';
 import { useGameProjections, type GameProjection } from '#/hooks/useGameProjections';
 import { useMyProjection } from '#/hooks/useMyProjection';
+import { useMyRecommendations } from '#/hooks/useMyRecommendations';
 import { useGameDetails } from '#/hooks/useGameDetails';
 import { buildGenreColorMap, genreColorFor } from '#/lib/genreColors';
 
@@ -326,6 +327,7 @@ function Home() {
   const {data: details} = useGameDetails(selectedAppId);
   const data = Route.useLoaderData();
   const {data: myProjection} = useMyProjection(!!data?.steamid);
+  const {data: myRecommendations} = useMyRecommendations(!!data?.steamid);
   const centroid = useMemo(() => games ? computeCentroid(games) : { cx: 0, cy: 0 }, [games]);
   const avatarPos = myProjection && Number.isFinite(myProjection.x) && Number.isFinite(myProjection.y)
     ? [(myProjection.x as number) - centroid.cx, (myProjection.y as number) - centroid.cy, 0] as [number, number, number]
@@ -403,6 +405,18 @@ function Home() {
             {details.genres && <p className="mt-1 text-sm text-white/70">{details.genres}</p>}
             {details.developers && <p className="mt-1 text-sm text-white/70">{details.developers}</p>}
           </div>
+        </div>
+      )}
+      {myRecommendations && (
+        <div className="absolute top-15 bottom-15 left-4 z-10 bg-[#1C2839] text-white shadow-xl overflow-scroll">
+            {myRecommendations.map((rec) =>( 
+                <a href={"https://store.steampowered.com/app/" + rec.app_id}>
+                  <h2 className="text-lg font-semibold">{rec.name}</h2>
+                  <img src={rec.header_image} alt={rec.name} className="w-full pr-5" />
+                  <p className="mt-1 text-sm text-white/70">{rec.genres}</p>
+                  <p className="mt-1 text-sm text-white/70">{rec.developers}</p>
+                </a>
+            ))}
         </div>
       )}
       <div className="absolute left-0 right-0 top-0 z-10 flex items-start justify-between p-4 text-white">

@@ -16,7 +16,7 @@ Vectorized embeddings, visualization, and recommendations of Steam games
 ## Frontend
 ### React + Vite + Tanstack
 - Allows users to login with Steam OAuth
-- Visualization of vectorized data with D3.js
+- Visualization of vectorized data with react-three-fiber
 - Shows recommended games, pathways to such, and highlights most played/searched for games
 
 ## Hosting

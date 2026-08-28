@@ -100,6 +100,13 @@ with psycopg.connect(conn_string) as conn:
 
         start_id += len(batch_proj)
 
+    # Build the HNSW index after data is inserted (faster than indexing during
+    # bulk insert). Idempotent so re-runs are safe.
+    conn.execute("""
+        CREATE INDEX IF NOT EXISTS game_embeddings_embedding_hnsw_idx
+        ON game_embeddings USING hnsw (embedding vector_cosine_ops)
+    """)
+
     result = conn.execute("SELECT COUNT(*) FROM game_embeddings").fetchone()
     count = result[0] if result else 0
     print(f"Uploaded {count:,} game embeddings")

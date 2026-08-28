@@ -1,5 +1,6 @@
-import os 
+import os
 import httpx
+import numpy as np
 import psycopg
 from psycopg.rows import dict_row
 from urllib.parse import urlencode
@@ -9,6 +10,7 @@ from fastapi.requests import Request
 from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from pgvector.psycopg import register_vector
 
 app = FastAPI()
 
@@ -22,6 +24,8 @@ app.add_middleware(
 )
 
 load_dotenv()
+
+DEFAULT_EMBEDDING_DIMS = 512
 
 @app.get("/")
 def read_root():
@@ -47,7 +51,7 @@ def steam_callback(req: Request):
     steam_id = ""
     if claimed_id:
         steam_id = claimed_id.split("/")[-1] 
-    
+
     response = RedirectResponse("http://localhost:3000/", status_code=302)
 
     # TODO: secure in prod
@@ -121,16 +125,7 @@ async def get_me(req: Request):
         except httpx.RequestError:
             return HTTPException(status_code=503, detail="Steam API Unreachable")
 
-@app.get("/api/my_projection")
-async def get_my_projection(req: Request):
-    cookies = dict(req.cookies)
-    steam_id = cookies.get("steam_id")
-    if not steam_id:
-        return HTTPException(status_code=401, detail="No steam_id provided")
-
-
-    # https://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?key=XXXXXXXXXXXXXXXXX&steamid=76561197960434622&format=json
-
+async def fetch_owned_games(steam_id: str) -> list[dict]:
     params = {
         "key": os.environ.get("STEAM_KEY"),
         "steamid": steam_id,
@@ -138,24 +133,66 @@ async def get_my_projection(req: Request):
     }
     url = "https://api.steampowered.com/IPlayerService/GetOwnedGames/v0001/?" + urlencode(params)
 
-    games = []
-
     async with httpx.AsyncClient() as client:
         try:
             resp = await client.get(url)
-            games = resp.json().get("response", {}).get("games") or []
+            return resp.json().get("response", {}).get("games") or []
 
         except httpx.HTTPStatusError as err:
-            return HTTPException(status_code=err.response.status_code, detail="Steam API Error")
+            raise HTTPException(status_code=err.response.status_code, detail="Steam API Error")
         except httpx.RequestError:
-            return HTTPException(status_code=503, detail="Steam API Unreachable")
+            raise HTTPException(status_code=503, detail="Steam API Unreachable")
+
+def db_connect():
+    conn_string = os.environ.get("DATABASE_URL")
+    if conn_string is None:
+        raise ValueError("DATABASE_URL environment variable is required")
+    conn = psycopg.connect(conn_string)
+    register_vector(conn)
+    return conn
+
+def taste_vector(conn, app_ids: list[str], playtimes: dict[str, int]):
+    weights = np.zeros(DEFAULT_EMBEDDING_DIMS, dtype=np.float32)
+    total_weight = 0.0
+
+    with conn.cursor(row_factory=dict_row) as curr:
+        curr.execute("""
+            SELECT g.app_id, g.embedding
+            FROM game_embeddings g
+            WHERE g.app_id = ANY(%s)
+        """, (app_ids,))
+        rows = curr.fetchall()
+
+        for row in rows:
+            w = playtimes.get(row["app_id"], 0)
+            if w <= 0:
+                continue
+            weights += w * row["embedding"].to_numpy()
+            total_weight += w
+
+    if total_weight <= 0:
+        return None
+
+    taste = weights / total_weight
+    norm = np.linalg.norm(taste)
+    if norm > 0:
+        taste = taste / norm
+    return taste
+
+@app.get("/api/my_projection")
+async def get_my_projection(req: Request):
+    cookies = dict(req.cookies)
+    steam_id = cookies.get("steam_id")
+    if not steam_id:
+        return HTTPException(status_code=401, detail="No steam_id provided")
+
+    games = await fetch_owned_games(steam_id)
+    app_ids = [str(g["appid"]) for g in games]
+    playtimes = {str(g["appid"]): g.get("playtime_forever", 0) for g in games}
 
     conn_string = os.environ.get("DATABASE_URL")
     if conn_string is None:
         raise ValueError("DATABASE_URL environment variable is required")
-
-    app_ids = [str(g["appid"]) for g in games]
-    playtimes = {str(g["appid"]): g.get("playtime_forever", 0) for g in games}
 
     with psycopg.connect(conn_string) as conn:
         with conn.cursor(row_factory=dict_row) as curr:
@@ -190,7 +227,6 @@ async def get_my_projection(req: Request):
 
 @app.get("/api/projections")
 async def get_projections():
-    # TODO: move this out of here and expose db module
     conn_string = os.environ.get("DATABASE_URL")
     if conn_string is None:
         raise ValueError("DATABASE_URL environment variable is required")
@@ -233,3 +269,40 @@ async def get_game(app_id: str):
             if row is None:
                 raise HTTPException(status_code=404, detail="Game not found")
             return JSONResponse(content=row)
+
+@app.get("/api/my_recommendations")
+async def get_my_recommendations(req: Request):
+    cookies = dict(req.cookies)
+    steam_id = cookies.get("steam_id")
+    if not steam_id:
+        return HTTPException(status_code=401, detail="No steam_id provided")
+
+    games = await fetch_owned_games(steam_id)
+    app_ids = [str(g["appid"]) for g in games]
+    playtimes = {str(g["appid"]): g.get("playtime_forever", 0) for g in games}
+
+    with db_connect() as conn:
+        taste = taste_vector(conn, app_ids, playtimes)
+        if taste is None:
+            return JSONResponse(content=[])
+
+        with conn.cursor(row_factory=dict_row) as curr:
+            curr.execute("""
+                SELECT
+                    g.app_id,
+                    g.name,
+                    g.genres,
+                    g.developers,
+                    g.header_image,
+                    g.embedding <=> %s AS distance
+                FROM game_embeddings g
+                WHERE g.app_id <> ALL(%s)
+                ORDER BY g.embedding <=> %s
+                LIMIT 10
+            """, (taste, app_ids, taste))
+            rows = curr.fetchall()
+
+    for row in rows:
+        row["distance"] = float(row["distance"])
+
+    return JSONResponse(content=rows)
