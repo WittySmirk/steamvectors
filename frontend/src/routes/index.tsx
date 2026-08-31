@@ -11,7 +11,7 @@ import { useMyRecommendations } from '#/hooks/useMyRecommendations';
 import { useGameDetails } from '#/hooks/useGameDetails';
 import { buildGenreColorMap, genreColorFor } from '#/lib/genreColors';
 
-export const Route = createFileRoute('/')({ 
+export const Route = createFileRoute('/')({
   loader: () => getCurrentUser(),
   component: Home
 })
@@ -323,11 +323,12 @@ function Home() {
   const [steamId, setSteamId] = useState<string>("");
   const [err, setErr] = useState<string | null>(null);
   const [selectedAppId, setSelectedAppId] = useState<string | null>(null);
-  const {data: games} = useGameProjections();
-  const {data: details} = useGameDetails(selectedAppId);
+  const [recsShown, setRecsShown] = useState<boolean>(true);
+  const { data: games } = useGameProjections();
+  const { data: details } = useGameDetails(selectedAppId);
   const data = Route.useLoaderData();
-  const {data: myProjection} = useMyProjection(!!data?.steamid);
-  const {data: myRecommendations} = useMyRecommendations(!!data?.steamid);
+  const { data: myProjection } = useMyProjection(!!data?.steamid);
+  const { data: myRecommendations } = useMyRecommendations(!!data?.steamid);
   const centroid = useMemo(() => games ? computeCentroid(games) : { cx: 0, cy: 0 }, [games]);
   const avatarPos = myProjection && Number.isFinite(myProjection.x) && Number.isFinite(myProjection.y)
     ? [(myProjection.x as number) - centroid.cx, (myProjection.y as number) - centroid.cy, 0] as [number, number, number]
@@ -359,13 +360,13 @@ function Home() {
       setErr(null);
       try {
         const resp = await fetch("http://localhost:8000/api/set_user", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({id: e.currentTarget.value}),
-            credentials: "include",
-            redirect: 'manual'
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ id: e.currentTarget.value }),
+          credentials: "include",
+          redirect: 'manual'
         })
 
         if (resp.type === 'opaqueredirect') {
@@ -385,11 +386,11 @@ function Home() {
   return (
     <div className="fixed inset-0 overflow-hidden bg-[#181a1f]">
       <Canvas className="h-full w-full"
-      orthographic
-      camera={{
-        position: [0, 0, 10],
-        zoom: 300
-      }}>
+        orthographic
+        camera={{
+          position: [0, 0, 10],
+          zoom: 300
+        }}>
         <color attach="background" args={['#181a1f']} />
         {games && <Projections games={games} onSelect={(g) => setSelectedAppId(g.app_id)} />}
         {data && avatarPos && <UserAvatar url={data.avatarmedium} position={avatarPos} />}
@@ -397,8 +398,8 @@ function Home() {
         <PixelProbe />
       </Canvas>
       {details && (
-        <div className="absolute bottom-4 left-4 z-10 w-72 overflow-hidden rounded-lg bg-[#1C2839] text-white shadow-xl">
-          <button onClick={() => setSelectedAppId(null)} className="absolute right-2 top-2 text-lg leading-none text-white/70 hover:text-white">×</button>
+        <div className="absolute bottom-4 right-4 z-10 w-72 overflow-hidden rounded-lg bg-[#1C2839] text-white shadow-xl">
+          <button onClick={() => setSelectedAppId(null)} className="absolute right-2 top-2 text-lg leading-none text-white hover:cursor-pointer">×</button>
           {details.header_image && <img src={details.header_image} alt={details.name} className="w-full" />}
           <div className="p-3">
             <h2 className="text-lg font-semibold">{details.name}</h2>
@@ -407,41 +408,49 @@ function Home() {
           </div>
         </div>
       )}
-      {myRecommendations && (
+      {myRecommendations &&
+        recsShown ? (
         <div className="absolute top-15 bottom-15 left-4 z-10 bg-[#1C2839] text-white shadow-xl overflow-scroll">
-            {myRecommendations.map((rec) =>( 
+          <button onClick={() => setRecsShown(false)} className="absolute right-4 top-2 pb-5 text-lg leading-none text-white hover:cursor-pointer">x</button>
+          {
+            myRecommendations.map((rec) => (
+              <>
+                <h2 className="text-lg font-semibold">{rec.name}</h2>
                 <a href={"https://store.steampowered.com/app/" + rec.app_id}>
-                  <h2 className="text-lg font-semibold">{rec.name}</h2>
                   <img src={rec.header_image} alt={rec.name} className="w-full pr-5" />
-                  <p className="mt-1 text-sm text-white/70">{rec.genres}</p>
-                  <p className="mt-1 text-sm text-white/70">{rec.developers}</p>
                 </a>
-            ))}
-        </div>
+                <p className="mt-1 text-sm text-white/70">{rec.genres}</p>
+                <p className="mt-1 text-sm text-white/70">{rec.developers}</p>
+              </>
+            ))
+          }
+        </div >
+      ) : (
+        <button onClick={() => setRecsShown(true)} className="absolute p-2 font-bold h-10 top-15 left-4 bg-[#1C2839] rounded-lg pb-5 text-lg leading-none text-white hover:cursor-pointer">Recommendations</button>
       )}
       <div className="absolute left-0 right-0 top-0 z-10 flex items-start justify-between p-4 text-white">
-        {data && data.steamid ? 
+        {data && data.steamid ?
           <div className="flex w-full items-center justify-between">
             <h1 className="text-2xl font-semibold drop-shadow">{data.personaname + "'s Steam Vectors"}</h1>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col items-center gap-3">
               <img src={data.avatarmedium} className="w-10 rounded-full" onClick={() => setAvatarToggled(!avatarToggled)} />
-              <button className={avatarToggled ? "text-red-400" : "hidden"} onClick={() => logout()}>Logout</button>
             </div>
           </div>
-        :
+          :
           <div className="flex w-full items-center justify-between">
             <h1 className="text-2xl font-semibold drop-shadow">Steam Vectors</h1>
             <div>
-              <input onKeyDown={handleSetUser} value={steamId} onChange={(e) => setSteamId(e.currentTarget.value)} className="w-64 border-2 border-[#1C2839] bg-[#1C2839] p-2 text-white placeholder-white/50" placeholder="Enter Steam ID"/>
+              <input onKeyDown={handleSetUser} value={steamId} onChange={(e) => setSteamId(e.currentTarget.value)} className="w-64 border-2 border-[#1C2839] bg-[#1C2839] p-2 text-white placeholder-white/50" placeholder="Enter Steam ID" />
               {err && <p className="text-red-400">{err}</p>}
             </div>
             <a className="flex items-center justify-center gap-2 rounded-xl bg-[#1C2839] p-2 text-xl text-white" href="http://localhost:8000/auth/steam/login">
-              Sign in with Steam 
+              Sign in with Steam
               <img className="w-10" src="https://i.imgur.com/bRSWE4P.png" />
             </a>
           </div>
         }
       </div>
-    </div>
+      <button className={avatarToggled ? "absolute top-15 right-2 p-2 text-white rounded-lg bg-[#1C2839]" : "hidden"} onClick={() => logout()}>Logout</button>
+    </div >
   )
 }
