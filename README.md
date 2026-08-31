@@ -2,7 +2,7 @@
 
 Vectorized embeddings, visualization, and recommendations of Steam games
 
-<img src="./docs/steamvectorsSS" />
+<img src="./docs/steamvectorsSS.png" />
 
 ## Pipeline
 - Download data from <a href="https://huggingface.co/datasets/FronkonGames/steam-games-dataset">🤗</a> -> raw_games.parquet
