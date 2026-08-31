@@ -2,6 +2,8 @@
 
 Vectorized embeddings, visualization, and recommendations of Steam games
 
+<img src="./docs/steamvectorsSS" />
+
 ## Pipeline
 - Download data from <a href="https://huggingface.co/datasets/FronkonGames/steam-games-dataset">🤗</a> -> raw_games.parquet
 - Clean data, removing html & md, converting lists to strings, removing duplicates -> games.parquet
